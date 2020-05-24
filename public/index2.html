@@ -1,0 +1,447 @@
+
+
+<!DOCTYPE html>
+
+<script runat="server">
+
+</script>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <title></title>
+        
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
+        <link href="./Content/jquery.mobile-1.4.5.css" rel="stylesheet" />
+        <style>
+            .cen {
+                text-align:center;
+            }
+            .auto-style1 {
+                font-size: large;
+            }
+            .auto-style2 {
+                font-size: xx-large;
+                font-weight: bold;
+            }
+        </style>
+        
+        <style>
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 15px;
+      border-radius: 5px;
+      background: #d3d3d3;
+      outline: none;
+      opacity: 0.7;
+      -webkit-transition: .2s;
+      transition: opacity .2s;
+    }
+    
+    .slider:hover {opacity: 1;}
+    
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    .slider::-moz-range-thumb {
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      background: #4CAF50;
+      cursor: pointer;
+    }
+    #redSlider::-webkit-slider-thumb {background: red;}
+    #redSlider::-moz-range-thumb {background: red;}
+    #greenSlider::-webkit-slider-thumb {background: green;}
+    #greenSlider::-moz-range-thumb {background: green;}
+    #blueSlider::-webkit-slider-thumb {background: blue;}
+    #blueSlider::-moz-range-thumb {background: blue;}
+    </style>
+    
+      <script src="https://www.gstatic.com/firebasejs/4.13.0/firebase.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script> <!-- include socket.io client side script -->
+        <script src="./Scripts/jquery-2.1.4.js"></script>
+        <script src="./Scripts/jquery.mobile-1.4.5.js"></script>
+        <script src="https://www.w3schools.com/lib/w3color.js"></script>
+        
+    <script>
+    //load socket.io-client and connect to the host that serves the page
+    var socket = io(); 
+    window.addEventListener("load", function(){ //when page loads
+      initFirebaseModule();
+      initBlubClickModule();
+      initSlideModuler();
+    
+    });
+    
+    function initFirebaseModule() {
+    
+        var config;
+        var db;
+        var Led01;
+        var Led02;
+        //==================================
+        // Initialize Firebase
+        config = {
+            apiKey: "AIzaSyCPUWMlSOG-q35oGsdI0YrU0H-WL0QvST4",
+            authDomain: "jpyuhomeautomation.firebaseapp.com",
+            databaseURL: "https://jpyuhomeautomation.firebaseio.com",
+            projectId: "jpyuhomeautomation",
+            storageBucket: "jpyuhomeautomation.appspot.com",
+            messagingSenderId: "1019126990182"
+        };
+        firebase.initializeApp(config);
+        db = firebase.database();
+        //==================================
+    
+        var ref_rgbLed = db.ref('/rgbLed/');
+    
+        var ref_TempHumid = db.ref('/TempHumid/');
+    
+        var ref_Leds = db.ref('/Leds/');
+    
+        //先將 LED狀態歸零
+        /*
+        db.ref('/Leds/').update({
+            Led01: "0",
+            Led02: "0"
+        });
+        */
+    
+    
+        //每次觸發事件(每次Leds節點上的狀態有改變時)都會執行callback function
+        ref_Leds.on("value", function (snapshot) {
+            console.log(snapshot.val());
+            Led01 = (snapshot.val() && snapshot.val().Led01) || 'Anonymous';
+            Led02 = (snapshot.val() && snapshot.val().Led02) || 'Anonymous';
+            ChangeImage();
+    
+            function ChangeImage() {
+                var ledJson = {
+                    mode: 0,
+                    value: 0
+                }
+                if (Led01 == "1") {
+                    document.getElementById("ledImage").src = "http://120.125.80.113/jpyuImages/image_52ared.gif";
+                    ledJson.mode = 0;  //要更新firebase上的資訊
+                    ledJson.value = 1;
+                    socket.emit("light1FromClient", ledJson);
+                } else {
+                    document.getElementById("ledImage").src = "http://120.125.80.113/jpyuImages/image_52a.gif";
+                    ledJson.mode = 0;  //不要更新firebase上的資訊
+                    ledJson.value = 0;
+                    socket.emit("light1FromClient", ledJson);
+                }
+                if (Led02 == "1") {
+                    document.getElementById("ledImage2").src = "http://120.125.80.113/jpyuImages/image_53agreen.gif";
+                    ledJson.mode = 0;  //不要更新firebase上的資訊
+                    ledJson.value = 1;
+                    socket.emit("light2FromClient", ledJson);
+                } else {
+                    document.getElementById("ledImage2").src = "http://120.125.80.113/jpyuImages/image_53a.gif";
+                    led2Json.mode = 0;  //不要更新firebase上的資訊
+                    led2Json.value = 0;
+                    socket.emit("light2FromClient", ledJson);
+                }
+            }
+            //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        }); //ref_Leds.on("value"
+    
+        //每次觸發事件(每次rgbLed節點上的狀態有改變時)都會執行callback function
+        ref_rgbLed.on("value", function (snapshot) {
+            console.log(snapshot.val());
+            //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            var rgb_red = (snapshot.val() && snapshot.val().Red) || 'Anonymous';
+            var rgb_green = (snapshot.val() && snapshot.val().Green) || 'Anonymous';
+            var rgb_blue = (snapshot.val() && snapshot.val().Blue) || 'Anonymous';
+    
+            var rgb = w3color("rgb(0,0,0)"); //we use the w3color.js library to keep the color as an object
+            rgb.red = rgb_red;
+            rgb.green = rgb_green;
+            rgb.blue = rgb_blue;
+    
+            colorShow.style.backgroundColor = rgb.toRgbString();  //update the "Current color"
+    
+            var rSlider = document.getElementById("redSlider");
+            var gSlider = document.getElementById("greenSlider");
+            var bSlider = document.getElementById("blueSlider");
+            rSlider.value = rgb.red;  //Update the RED slider position according to the picker
+            gSlider.value = rgb.green;  //Update the GREEN slider position according to the picker
+            bSlider.value = rgb.blue;  //Update the BLUE slider position according to the picker
+    
+            var RGBColor = document.getElementById("RGBColor");
+            RGBColor.innerHTML = "RGBColor(" + rgb.red + ","
+            + rgb.green + ","
+            + rgb.blue + ")";
+            socket.emit("rgbLedFromClient_noUpdate", rgb); //send the updated color to RGB LED via WebSocket
+    
+            //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        }); //ref_rgbLed.on("value"
+    
+        //每次觸發事件(每次TempHumid節點上的狀態有改變時)都會執行callback function
+        ref_TempHumid.on("value", function (snapshot) {
+            console.log(snapshot.val());
+            //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+            var tempVal = (snapshot.val() && snapshot.val().Temp) || 'Anonymous';
+            var humidVal = (snapshot.val() && snapshot.val().Humid) || 'Anonymous';
+    
+            var Lbl_temp = document.getElementById("temp");
+            var Lbl_humid = document.getElementById("humid");
+            Lbl_temp.innerHTML = "" + tempVal + "&deg;C";
+            Lbl_humid.innerHTML = "" + humidVal + "%";
+            //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        }); //ref_TempHumid.on("value"
+    
+    
+    
+    }
+    
+    function initBlubClickModule(){
+      var ledImage = document.getElementById("ledImage"); 
+      var ledImage2 = document.getElementById("ledImage2"); 
+      ledImage.addEventListener("click", led1_switchImage);
+      ledImage2.addEventListener("click", led2_switchImage);
+    
+      function led1_switchImage() {
+          var led1Json = {
+              mode: 0,
+              value: 0
+          }
+         var str = document.getElementById("ledImage").src;
+         if(str.includes("image_52a.gif")){
+            document.getElementById("ledImage").src = "http://120.125.80.113/jpyuImages/image_52ared.gif";
+             //send button status to server (as 1 or 0)
+            led1Json.mode = 1;  //要更新firebase上的資訊
+            led1Json.value = 1;
+            socket.emit("light1FromClient", led1Json);
+            //socket.emit("light1FromClient", Number(1));
+         }else{
+            document.getElementById("ledImage").src = "http://120.125.80.113/jpyuImages/image_52a.gif";
+             //send button status to server (as 1 or 0)
+            led1Json.mode = 1;   //要更新firebase上的資訊
+            led1Json.value = 0;
+            socket.emit("light1FromClient", led1Json);
+            //socket.emit("light1FromClient", Number(0)); 
+         }
+      }
+      
+      function led2_switchImage(){
+          var str = document.getElementById("ledImage2").src;
+          var led2Json = {
+              mode: 0,
+              value: 0
+          }
+         if(str.includes("image_53a.gif")){
+             document.getElementById("ledImage2").src = "http://120.125.80.113/jpyuImages/image_53agreen.gif";
+             //send button status to server (as 1 or 0)
+             led2Json.mode = 1;  //要更新firebase上的資訊
+             led2Json.value = 1;
+             socket.emit("light2FromClient", led2Json);
+             //socket.emit("light2FromClient", Number(1)); 
+         }else{
+             document.getElementById("ledImage2").src = "http://120.125.80.113/jpyuImages/image_53a.gif";
+             //send button status to server (as 1 or 0)
+             led2Json.mode = 1;  //要更新firebase上的資訊
+             led2Json.value = 0;
+             socket.emit("light2FromClient", led2Json);
+            //socket.emit("light2FromClient", Number(0)); 
+         }
+      }
+    }
+    
+    function initSlideModuler() {
+        var rSlider = document.getElementById("redSlider");
+        var gSlider = document.getElementById("greenSlider");
+        var bSlider = document.getElementById("blueSlider");
+        var picker = document.getElementById("pickColor");
+        var RGBColor = document.getElementById("RGBColor");
+        //可自firebase讀取rgb值來設定rgb初值
+        var rgb = w3color("rgb(0,0,0)"); //we use the w3color.js library to keep the color as an object
+       
+        rSlider.value = rgb.red;  //Update the RED slider position according to the picker
+        gSlider.value = rgb.green;  //Update the GREEN slider position according to the picker
+        bSlider.value = rgb.blue;
+        colorShow.style.backgroundColor = rgb.toRgbString();
+        RGBColor.innerHTML = "RGBColor(" + rgb.red + ","
+        + rgb.green + ","
+        + rgb.blue + ")";
+    
+        //add event listener for when red slider changes
+        rSlider.addEventListener("change", function () {
+            console.log("r=" + this.value);
+            rgb.red = this.value; //update the RED color according to the slider
+            colorShow.style.backgroundColor = rgb.toRgbString(); //update the "Current color"
+            socket.emit("rgbLedFromClient", rgb); //send the updated color to RGB LED via WebSocket
+    
+            RGBColor.innerHTML = "RGBColor(" + rgb.red + ","
+            + rgb.green + ","
+            + rgb.blue + ")";
+        });
+    
+        //add event listener for when green slider changes
+        gSlider.addEventListener("change", function () {
+            rgb.green = this.value; //update the GREEN color according to the slider
+            colorShow.style.backgroundColor = rgb.toRgbString(); //update the "Current color"
+            socket.emit("rgbLedFromClient", rgb); //send the updated color to RGB LED via WebSocket
+            RGBColor.innerHTML = "RGBColor(" + rgb.red + ","
+            + rgb.green + ","
+            + rgb.blue + ")";
+        });
+    
+        //add event listener for when blue slider changes
+        bSlider.addEventListener("change", function () {
+            rgb.blue = this.value;  //update the BLUE color according to the slider
+            colorShow.style.backgroundColor = rgb.toRgbString(); //update the "Current color"
+            socket.emit("rgbLedFromClient", rgb); //send the updated color to RGB LED via WebSocket
+            RGBColor.innerHTML = "RGBColor(" + rgb.red + ","
+            + rgb.green + ","
+            + rgb.blue + ")";
+        });
+    
+    
+        //add event listener for when colorpicker changes
+        picker.addEventListener("input", function () {
+            rgb.red = w3color(this.value).red; //Update the RED color according to the picker
+            rgb.green = w3color(this.value).green; //Update the GREEN color according to the picker
+            rgb.blue = w3color(this.value).blue; //Update the BLUE color according to the picker
+            colorShow.style.backgroundColor = rgb.toRgbString();  //update the "Current color"
+            rSlider.value = rgb.red;  //Update the RED slider position according to the picker
+            gSlider.value = rgb.green;  //Update the GREEN slider position according to the picker
+            bSlider.value = rgb.blue;  //Update the BLUE slider position according to the picker
+            socket.emit("rgbLedFromClient", rgb);  //send the updated color to RGB LED via WebSocket
+            RGBColor.innerHTML = "RGBColor(" + rgb.red + ","
+            + rgb.green + ","
+            + rgb.blue + ")";
+        });
+    
+    
+    }
+    </script>
+
+        <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+        <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+    </head>
+
+
+
+
+    
+<body>
+    
+
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header
+                mdl-layout--fixed-tabs">
+      <header class="mdl-layout__header">
+        <div class="mdl-layout__header-row">
+          <!-- Title -->
+          <span class="mdl-layout-title">iHouse智慧居家控制系統</span>
+        </div>
+        <!-- Tabs -->
+        <div class="mdl-layout__tab-bar mdl-js-ripple-effect">
+          <a href="#fixed-tab-1" class="mdl-layout__tab is-active">電燈開關</a>
+          <a href="#fixed-tab-2" class="mdl-layout__tab">溫溼度檢測</a>
+          <a href="#fixed-tab-3" class="mdl-layout__tab">三色LED燈</a>
+        </div>
+      </header>
+      <div class="mdl-layout__drawer">
+        <span class="mdl-layout-title">Title</span>
+      </div>
+      <main class="mdl-layout__content">
+        <section class="mdl-layout__tab-panel is-active" id="fixed-tab-1">
+          <div class="page-content"><!-- Your content goes here -->
+            
+            <div style="width:100%; margin:0 auto; text-align: center; background-color: #00CC99;" class="auto-style1">
+                <h2><b>電燈開關</b></h2>
+            </div>
+            <div style="width:100%; margin:0 auto; text-align: center; background-color: #FFFF99;">
+            <table style="width:300px; margin:0 auto; text-align: center;">
+                <tr>
+                    <td >
+                        <img id="ledImage" src="http://120.125.80.113/jpyuImages/image_52a.gif" height="160" width="128" />
+                    </td>
+                    <td>
+                        <img id="ledImage2" src="http://120.125.80.113/jpyuImages/image_53a.gif" height="160" width="128" />
+                    </td>
+                </tr>
+            </table>
+            </div>        
+          </div>
+
+        </section>
+        <section class="mdl-layout__tab-panel" id="fixed-tab-2">
+          <div class="page-content"><!-- Your content goes here -->
+        
+            <div style="width:100%; margin:0 auto; text-align: center; background-color: #00CC99;" class="auto-style1">
+                <h2><b>溫溼度資訊(每5秒更新)</b></h2>
+            </div>
+            <div style="width:100%; margin:0 auto; text-align: center; background-color: #FFFF99;">
+                <table style="width:300px; margin:0 auto; text-align: center;">
+                    <tr>
+                        <td class="auto-style2" >
+                            溫度 </td>
+                        <td>           
+                            <label id="temp">26.3&deg;C </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="auto-style2" >
+                            濕度 </td>
+                        <td>           
+                            <label id="humid">65.5 </label>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        
+          </div>
+        </section>
+        <section class="mdl-layout__tab-panel" id="fixed-tab-3">
+          <div class="page-content"><!-- Your content goes here -->
+        
+            <div style="width:100%; margin:0 auto; text-align: center; background-color: #00CC99;" class="auto-style1">
+                <h2><b>三色LED燈</b></h2>
+            </div>
+            <div style="width:100%; margin:0 auto; text-align: center; background-color: #FFFF99;">
+                <table style="width:450px; margin:0 auto; text-align: center;">
+                    <tr>
+                        <td  style="width:50px; margin:0 auto; text-align: center;">    
+                            <div class="w3-container w3-cell w3-mobile" style="background-color:black; width:128px; height:160px;" id="colorShow" />
+    <!-- 
+        <img id="ledImage" src="http://120.125.80.113/jpyuImages/image_52a.gif" height="160" width="128" />
+        -->
+                        </td>
+                        <td style="width:450px; margin:0 auto; text-align: center;">
+                            <div class="w3-container">
+                                <h1><label id="RGBColor">RGB Color </label></h1>
+                                <div class="w3-cell-row">
+                                    <div class="w3-container w3-cell w3-mobile">
+                                    <p><input type="range" min="0" max="255" value="0" class="slider" id="redSlider" /></p>
+                                    <p><input type="range" min="0" max="255" value="0" class="slider" id="greenSlider" /></p>
+                                    <p><input type="range" min="0" max="255" value="0" class="slider" id="blueSlider" /></p>
+                                    </div>
+                                </div>
+                                <p>Or pick a color: <input type="color" id="pickColor" /></p>
+                            </div>
+
+                        </td>
+                    </tr>
+                </table>
+
+            </div>
+        
+          </div>
+        </section>
+      </main>
+    </div>
+</body>
+</html>
